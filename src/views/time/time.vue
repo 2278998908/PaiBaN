@@ -6,7 +6,8 @@
       <el-button @click="next">下一周</el-button>
     </el-button-group>
     <div id="one">
-      <div style="width: 1200px; height: 1000px" id="ec"></div>
+      <div style="width: 1200px; height: 600px" id="ec"></div>
+      <div style="width: 1200px; height: 1000px" id="pie"></div>
     </div>
   </div>
 </template>
@@ -35,6 +36,7 @@ export default {
     setTimeout(async () => {
       await this.getinfo();
       this.test();
+      this.pie();
     }, 1000);
   },
   methods: {
@@ -56,18 +58,18 @@ export default {
       }
       //   console.log(this.time);
     },
-    clear() {
-      let data1 = this.empid;
-      let data2 = this.time;
-      myChart.setOption({
-        xAxis: { data: data1 },
-        series: [
-          {
-            data: data2,
-          },
-        ],
-      });
-    },
+    // clear() {
+    //   let data1 = this.empid;
+    //   let data2 = this.time;
+    //   myChart.setOption({
+    //     xAxis: { data: data1 },
+    //     series: [
+    //       {
+    //         data: data2,
+    //       },
+    //     ],
+    //   });
+    // },
     test() {
       var myChart = (myChart = this.echarts.init(
         document.querySelector("#ec")
@@ -75,7 +77,7 @@ export default {
 
       var option = {
         title: {
-          text: "例子",
+          text: "工时柱状图",
         },
         tooltip: {
           trigger: "axis",
@@ -83,35 +85,38 @@ export default {
           fontFamily: "宋体",
           fontWeight: 100,
           padding: 20,
-          formatter: (params) => {
-            let title = "详细信息";
-            let a = parseInt(params[0].name);
-            let b = this.empid.indexOf(a);
-            let c = this.name[b];
-            let d = params[0].data;
-            // return `姓名：${c} ;ID: ${a} ;工时: ${d}`
-            return (
-              "<span>" +
-              title +
-              "<span><br>" +
-              "<span>ID:" +
-              a +
-              "<span><br>" +
-              "<span>姓名:" +
-              c +
-              "<span><br>" +
-              "<span>工时:" +
-              d +
-              "<span><br>"
-            );
-          },
+        //   formatter: (params) => {
+        //     let title = "详细信息";
+        //     let a = parseInt(params[0].name);
+        //     let b = this.empid.indexOf(a);
+        //     let c = this.name[b];
+        //     let d = params[0].data;
+        //     // return `姓名：${c} ;ID: ${a} ;工时: ${d}`
+        //     return (
+        //       "<span>" +
+        //       title +
+        //       "<span><br>" +
+        //       "<span>ID:" +
+        //       a +
+        //       "<span><br>" +
+        //       "<span>姓名:" +
+        //       c +
+        //       "<span><br>" +
+        //       "<span>工时:" +
+        //       d +
+        //       "<span><br>"
+        //     );
+        //   },
         },
         legend: {
           data: ["工时"],
         },
         xAxis: {
           name: "员工ID",
-          data: this.empid,
+          data: this.name,
+          axisLabel: {
+            rotate: 270, // 设置标签旋转角度
+          },
         },
         yAxis: {
           name: "工时",
@@ -128,11 +133,46 @@ export default {
       // 使用刚指定的配置项和数据显示图表。
       myChart.setOption(option);
     },
+    pie() {
+      let data = [];
+      for (let i = 0; i < this.name.length; i++) {
+        data.push({
+          value: this.time[i],
+          name: this.name[i],
+        });
+      }
+      var myChart = (myChart = this.echarts.init(
+        document.querySelector("#pie")
+      ));
+
+      var option = {
+        title: {
+          text: "工时饼图",
+        },
+        legend: {
+          orient: "vertical",
+          left: "left",
+          top: 20,
+          data: this.name,
+        },
+        series: [
+          {
+            type: "pie",
+            data: data,
+          },
+        ],
+      };
+
+      // 使用刚指定的配置项和数据显示图表。
+      myChart.setOption(option);
+    },
     pre() {
       if (this.id - 7 > 0) {
         let ec = document.querySelector("#ec");
+        let pie = document.querySelector("#pie");
         let fa = document.querySelector("#one");
         ec.remove();
+        pie.remove();
         this.id = this.id - 7;
         this.start = dayjs(this.start).subtract(7, "day").format("YYYY-MM-DD");
         this.end = dayjs(this.end).subtract(7, "day").format("YYYY-MM-DD");
@@ -141,7 +181,9 @@ export default {
         this.name.splice(0, this.name.length);
         this.getinfo();
         fa.innerHTML +=
-          '<div style="width: 1200px; height: 1000px" id="ec"></div>';
+          '<div style="width: 1200px; height: 600px" id="ec"></div>';
+        fa.innerHTML +=
+          '<div style="width: 1200px; height: 1000px" id="pie"></div>';
       } else {
         this.$message({
           message: "上一周暂无数据",
@@ -151,12 +193,15 @@ export default {
       }
       setTimeout(() => {
         this.test();
+        this.pie();
       }, 800);
     },
     next() {
       let ec = document.querySelector("#ec");
+      let pie = document.querySelector("#pie");
       let fa = document.querySelector("#one");
       ec.remove();
+      pie.remove();
       this.id = this.id + 7;
       this.start = dayjs(this.start).add(7, "day").format("YYYY-MM-DD");
       this.end = dayjs(this.end).add(7, "day").format("YYYY-MM-DD");
@@ -167,9 +212,12 @@ export default {
       //   console.log(this.empid);
       this.getinfo();
       fa.innerHTML +=
-        '<div style="width: 1200px; height: 1000px" id="ec"></div>';
+        '<div style="width: 1200px; height: 600px" id="ec"></div>';
+      fa.innerHTML +=
+        '<div style="width: 1200px; height: 1000px" id="pie"></div>';
       setTimeout(() => {
         this.test();
+        this.pie();
       }, 800);
     },
   },
