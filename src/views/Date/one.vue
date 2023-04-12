@@ -479,19 +479,21 @@ export default {
         this.$http
           .get("/schedule/getScheduleByName/" + this.shopid_ + "/" + this.day_)
           .then((res) => {
-            this.$http
-              .get("/schedule/exportExcel/" + this.shopid_)
-              .then((response) => {
-                var blob = new Blob([response.data], {
-                  type: "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
-                });
-                var url = URL.createObjectURL(blob);
-                var a = document.createElement("a");
-                a.href = url;
-                a.download = "工时.xlsx"; // 文件名
-                a.click();
-                URL.revokeObjectURL(url);
+            this.$http({
+              url: "/schedule/exportExcel/" + this.shopid_,
+              method: "GET",
+              responseType: "blob",
+            }).then((response) => {
+              var blob = new Blob([response.data], {
+                type: "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
               });
+              var url = URL.createObjectURL(blob);
+              var a = document.createElement("a");
+              a.href = url;
+              a.download = "工时.xlsx"; // 文件名
+              a.click();
+              URL.revokeObjectURL(url);
+            });
           });
       } else {
         alert("无数据");
