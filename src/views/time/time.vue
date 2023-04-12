@@ -149,6 +149,7 @@ export default {
         title: {
           text: "工时饼图",
         },
+        tooltip:{},
         legend: {
           orient: "vertical",
           left: "left",
