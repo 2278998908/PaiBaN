@@ -47,7 +47,7 @@
       <el-table-column prop="status" label="状态" align="center">
       </el-table-column>
     </el-table>
-    <button @click="a(0)">测试</button>
+    <!-- <button @click="a(0)">测试</button> -->
   </div>
 </template>
 
@@ -142,7 +142,7 @@ export default {
       const a = await this.$http.put(
         "/apply/delExchange/" + row.applyId + "/1"
       );
-      console.log(a.data);
+      // console.log(a.data);
       let b = 'a'+index
       let c = 'r'+index
       this.$refs[b].disabled = true
@@ -153,19 +153,19 @@ export default {
       const a = await this.$http.put(
         "/apply/delExchange/" + row.applyId + "/2"
       );
-      console.log(a);
+      // console.log(a);
       let b = 'a'+index
       let c = 'r'+index
       this.$refs[b].disabled = true
       this.$refs[c].disabled = true
     //   location.reload();
     },
-    a(c){
-        console.log(this.$refs)
-        let b='a'+c
-        this.$refs[b].disabled = true
-        console.log(this.$refs[b],{b})
-    }
+    // a(c){
+    //     console.log(this.$refs)
+    //     let b='a'+c
+    //     this.$refs[b].disabled = true
+    //     console.log(this.$refs[b],{b})
+    // }
   },
 };
 </script>

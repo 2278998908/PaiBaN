@@ -454,8 +454,11 @@ export default {
   },
   // created时就发自动安排的请求
   async created() {
-    await this.getinfo();
-    await this.getemp();
+    this.roomValue = this.shopid_
+    setTimeout(async ()=>{
+      await this.getinfo();
+      await this.getemp();
+    },2000)
   },
   mounted() {
     setTimeout(() => {
@@ -502,7 +505,7 @@ export default {
     },
     async getemp() {
       let { data: res } = await this.$http.get(
-        "/emp/" + this.shopid_ + "/1/100"
+        "/emp/" + this.roomValue + "/1/100"
       );
       console.log("排班第466", res);
       for (let i = 0; i < res.data.records.length; i++) {
@@ -535,7 +538,7 @@ export default {
     async getinfo() {
       this.all_.splice(0, this.all_.length);
       this.calendarOptions.events.splice(0, this.calendarOptions.events.length);
-      const a = await this.$http.get(`/schedule/${this.value}`);
+      const a = await this.$http.get(`/schedule/${this.roomValue}`);
       console.log(this.calendarApi);
       console.log("这是我获取到的总数据：");
       console.log(a.data.data);
@@ -817,7 +820,11 @@ export default {
     //指派功能结束
     // 点击切换门店事件
     changeRoom(index) {
-      console.log(index);
+      this.all_.splice(0,this.all_.length)
+      this.calendarOptions.resources.splice(0,this.calendarOptions.resources.length)
+      this.clear()
+      this.getinfo()
+      this.getemp()
     },
 
     //
@@ -1091,6 +1098,9 @@ p {
   text-align: center;
   height: 20px;
   line-height: 20px;
+}
+.fc-scrollgrid-section>th:first-child {
+  width: 100px;
 }
 </style>
   
