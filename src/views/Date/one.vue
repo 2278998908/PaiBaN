@@ -238,7 +238,7 @@
                 v-if="isshow"
                 style="
                   display: block;
-                  width: 100px;
+                  width:100px;
                   height: 20px;
                   text-align: center;
                   line-height: 20px;

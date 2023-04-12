@@ -177,7 +177,7 @@ export function resetRouter() {
   router.matcher = newRouter.matcher // reset router
 }
 
-const pathArr = ['/home/date','/acl','/user','/acl/user/list','/acl/role/list','/user/user']
+const pathArr = ['/home/date','/acl','/user','/acl/user/list','/acl/role/list','/user/user','/time','/change','/change/me']
 
 router.beforeEach(function(to,from,next){
   if(pathArr.indexOf(to.path) !== -1){
