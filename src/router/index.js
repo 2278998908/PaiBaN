@@ -90,6 +90,19 @@ export const constantRoutes = [
     ]
   },
   {
+    path: '/time',
+    show: true,
+    component: Layout,
+    children: [
+      {
+        path: 'time',
+        name: 'time',
+        component: () => import('@/views/time/time'),
+        meta: { title: '工时', icon: 'el-icon-goods' }
+      }
+    ]
+  },
+  {
     path: '/user',
     show: true,
     component: Layout,

@@ -54,6 +54,7 @@
 <script>
 let token = 0;
 export default {
+  props:["shopid_"],
   data() {
     return {
       msg: [],

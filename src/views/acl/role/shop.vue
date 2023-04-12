@@ -90,6 +90,7 @@
 
 export default {
   name: 'Store',
+  props:["shopid_"],
   data() {
     return {
       dialogFormVisible: false,

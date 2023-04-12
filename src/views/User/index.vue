@@ -68,6 +68,7 @@
 import axios from 'axios'
 
 export default {
+  props:["shopid_"],
   data() {
     return {
       user: {

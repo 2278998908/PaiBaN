@@ -201,6 +201,7 @@ import { searchEmployee } from '@/api/searchemployee'
 // import { searchEmployee } from '@/api/searchemployee'
 export default {
   name: 'AclUserList',
+  props:["shopid_"],
   // inject: ['reload'],
   data() {
     return {

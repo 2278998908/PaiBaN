@@ -78,6 +78,14 @@
           icon="el-icon-arrow-right"
           @click="next"
         />
+        <div style="float: right">
+          <span
+            style="color: #00a4ff; font-size: 12px; cursor: pointer"
+            v-if="daochu"
+            @click="port"
+            >导出</span
+          >
+        </div>
       </div>
       <!-- 时间轮播栏end -->
     </div>
@@ -104,6 +112,7 @@
           style="border-width: 1.5px; margin-right: 4px"
           >交换</el-button
         >
+        <el-button icon="el-icon-search" @click="exchange">切换视图</el-button>
         <el-button type="primary" @click="show" circle>排</el-button>
       </div>
     </div>
@@ -179,7 +188,7 @@
             </el-form-item>
           </el-col>
         </el-form-item>
-        
+
         <el-form-item>
           <el-button @click="resetForm('form')">取消</el-button>
           <el-button type="primary" @click="submitForm('form')">提交</el-button>
@@ -205,13 +214,17 @@
             title="信息"
             width="200"
             :visible-arrow="false"
-            trigger="click"
+            trigger="hover"
           >
             <p class="detail">姓名：{{ arg.event.title }}</p>
             <p class="detail">职务：{{ arg.event.extendedProps.work }}</p>
             <p class="detail">时间：{{ arg.timeText }}</p>
-            <el-button @click="changeinfo" size="mini" style="float: right">
-              交换
+            <el-button
+              @click="select(arg.event)"
+              size="mini"
+              style="float: right"
+            >
+              指派
             </el-button>
             <el-button
               @click="deleteinfo(arg.event.extendedProps)"
@@ -268,10 +281,28 @@
       </FullCalendar>
     </div>
     <!-- 日历组件end-->
+    <el-dialog title="可选择的指派人员" :visible.sync="table">
+      <el-table :data="recommend" border>
+        <el-table-column prop="empId" label="员工ID"> </el-table-column>
+        <el-table-column prop="name" label="姓名"> </el-table-column>
+        <el-table-column prop="" label="操作" width="220px" align="center">
+          <template slot-scope="scope">
+            <el-button
+              size="mini"
+              type="warning"
+              icon="el-icon-edit"
+              :ref="'a' + scope.$index"
+              @click="agree(scope.row, scope.$index)"
+              >选择</el-button
+            >
+          </template>
+        </el-table-column>
+      </el-table>
+    </el-dialog>
   </el-card>
 </template>
   
-  <script>
+<script>
 import axios from "axios";
 import dayjs from "dayjs";
 import _ from "lodash";
@@ -280,17 +311,27 @@ import dayGridPlugin from "@fullcalendar/daygrid";
 import timeGridPlugin from "@fullcalendar/timegrid";
 import listPlugin from "@fullcalendar/list";
 import interactionPlugin from "@fullcalendar/interaction";
+import resourceTimelinePlugin from "@fullcalendar/resource-timeline";
 
 let clickCount = 0;
 let change_ = 0;
+let flag = 0;
 let prev = ""; // 上一次点击的dom节点
 export default {
+  props: ["shopid_"],
   components: {
     FullCalendar, // make the <FullCalendar> tag available
   },
   data() {
     return {
-      id:'',
+      daochu: false,
+      day_: -2,
+      dayid: "",
+      classid: "",
+      index: "",
+      table: false,
+      recommend: [],
+      id: "",
       changelist: [],
       isshow: false,
       color_: [
@@ -353,8 +394,14 @@ export default {
 
       // fullcalendar配置项start
       calendarOptions: {
-        plugins: [dayGridPlugin, timeGridPlugin, listPlugin, interactionPlugin],
-        initialDate: "2023-05-08", // 默认开始日期
+        plugins: [
+          dayGridPlugin,
+          timeGridPlugin,
+          listPlugin,
+          interactionPlugin,
+          resourceTimelinePlugin,
+        ],
+        initialDate: "2023-05-10", // 默认开始日期
         eventClick: this.handleEventClick,
         select: this.handleDateSelect,
         // stickyFooterScrollbar: true ,
@@ -365,7 +412,8 @@ export default {
         locale: "zh",
         timeZone: "UTC",
         firstDay: 1, // 设置一周中显示的第一天是哪天，周日为0，周一为1，类推
-        height: 1337,
+        // height: 1337,
+        height: 1100,
         timeGridEventMinHeight: "40", // 设置事件的最小高度
         // aspectRatio: 100, // 设置日历单元格宽度与高度的比例。
         eventLimit: true, // 设置月日程，与all-day slot的最大显示数量，超过的通过弹窗显示
@@ -382,8 +430,8 @@ export default {
         displayEventEnd: true, // like 08:00 - 13:00
         eventsSet: this.handleEvents,
         eventMinHeight: 70, // 事件最小高度
-        eventMinWidth: 550,
-        slotMinTime: "06:00:00",
+        // eventMinWidth: 550,
+        slotMinTime: "07:00:00",
         eventTimeFormat: {
           // like '14:30:00'
           hour: "2-digit",
@@ -391,8 +439,8 @@ export default {
           meridiem: false,
           hour12: false, // 设置时间为24小时
         },
+        resources: [],
         events: [],
-
         // eventColor: "#f08f00",
         allDayText: "全天",
         dateClick: this.handleDateClick,
@@ -406,12 +454,13 @@ export default {
   },
   // created时就发自动安排的请求
   async created() {
-    await this.getinfo()
+    await this.getinfo();
+    await this.getemp();
   },
   mounted() {
     setTimeout(() => {
       this.showFullcalendar = false;
-      this.id = localStorage.getItem('token')
+      this.id = localStorage.getItem("token");
       this.$nextTick(() => {
         this.calendarApi = this.$refs.fullCalendar.getApi();
         this.title = this.calendarApi.view?.title;
@@ -423,9 +472,67 @@ export default {
   },
 
   methods: {
+    port() {
+      console.log(this.day_);
+      let a = 0;
+      if (this.day_ >= 0) {
+        this.$http
+          .get("/schedule/getScheduleByName/" + this.shopid_ + "/" + this.day_)
+          .then((res) => {
+            this.$http
+              .get("/schedule/exportExcel/" + this.shopid_)
+              .then((response) => {
+                var blob = new Blob([response.data], {
+                  type: "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+                });
+                var url = URL.createObjectURL(blob);
+                var a = document.createElement("a");
+                a.href = url;
+                a.download = "工时.xlsx"; // 文件名
+                a.click();
+                URL.revokeObjectURL(url);
+              });
+          });
+      } else {
+        alert("无数据");
+      }
+      return a;
+    },
+    async getemp() {
+      let { data: res } = await this.$http.get(
+        "/emp/" + this.shopid_ + "/1/100"
+      );
+      console.log("排班第466", res);
+      for (let i = 0; i < res.data.records.length; i++) {
+        this.calendarOptions.resources.push({
+          id: res.data.records[i].ID,
+          title: res.data.records[i].name,
+        });
+      }
+      this.calendarApi.refetchResources();
+    },
+    exchange() {
+      if (flag === 0) {
+        this.calendarApi.changeView("resourceTimelineDay");
+        this.title = this.calendarApi.view?.title;
+        this.ptitle();
+        this.ntitle();
+        this.calendarApi.prev();
+        this.daochu = true;
+        flag = 1;
+      } else {
+        this.calendarApi.changeView("timeGridWeek");
+        this.title = this.calendarApi.view?.title;
+        this.ptitle();
+        this.ntitle();
+        this.calendarApi.prev();
+        this.daochu = false;
+        flag = 0;
+      }
+    },
     async getinfo() {
-      this.all_.splice(0,this.all_.length)
-      this.calendarOptions.events.splice(0,this.calendarOptions.events.length)
+      this.all_.splice(0, this.all_.length);
+      this.calendarOptions.events.splice(0, this.calendarOptions.events.length);
       const a = await this.$http.get(`/schedule/${this.value}`);
       console.log(this.calendarApi);
       console.log("这是我获取到的总数据：");
@@ -469,14 +576,16 @@ export default {
                 end: end_,
                 dayId: b[i][j].dayId,
                 clazzId: b[i][j].clazzId,
+                index: m,
                 clazzForEmpId: b[i][j].clazzForEmpList[m].clazzForEmpId,
+                resourceId: b[i][j].clazzForEmpList[m].empId,
                 backgroundColor: this.color_[j % 8],
               });
             } else {
               this.all_.push({
-                id: b[i][j].clazzForEmpList[m].empId,
+                // id: b[i][j].clazzForEmpList[m].empId,
                 title: b[i][j].clazzForEmpList[m].name,
-                work: b[i][j].clazzForEmpList[m].position,
+                // work: b[i][j].clazzForEmpList[m].position,
                 start:
                   dayjs(b[i][j].date).format("YYYY-MM-DD") +
                   " " +
@@ -484,6 +593,8 @@ export default {
                 end:
                   dayjs(b[i][j].date).format("YYYY-MM-DD") + " " + b[i][j].end,
                 dayId: b[i][j].dayId,
+                index: m,
+                clazzForEmpId: b[i][j].clazzForEmpList[m].clazzForEmpId,
                 clazzId: b[i][j].clazzId,
                 backgroundColor: this.color_[j % 8],
               });
@@ -492,25 +603,27 @@ export default {
         }
       }
     },
+    //日历的单元格点击事件
     handleEventClick(info) {
-      console.log(this.calendarApi.getEvents())
-      if(change_ == 0){
-        if(info.event.id !== this.id){
+      console.log(this.calendarApi.getEvents());
+      if (change_ == 0) {
+        if (info.event.id !== this.id) {
           this.$message({
-          message: "请先选择你自己的班次",
-          type: "error",
-        });
-        return
+            message: "请先选择你自己的班次",
+            type: "error",
+          });
+          return;
         }
       }
-      if(change_ == 3){
-        this.changelist.splice(1,1)
-        change_ = 1
+      if (change_ == 3) {
+        this.changelist.splice(1, 1);
+        change_ = 1;
       }
       this.changelist.push(info.event);
       change_++;
       this.change1();
     },
+    // 交换
     async change1() {
       if (change_ == 0) {
         this.$message({
@@ -530,20 +643,42 @@ export default {
         change_++;
       } else {
         change_ = 0;
-        console.log(this.changelist[0].start)
-        console.log(dayjs(this.changelist[0].start).subtract(8,'h').format("YYYY-MM-DD HH-mm-ss"))
+        console.log(this.changelist[0].start);
+        console.log(
+          dayjs(this.changelist[0].start)
+            .subtract(8, "h")
+            .format("YYYY-MM-DD HH-mm-ss")
+        );
         const a = await this.$http.post("/apply/applyExchange", {
           applyExchange: {
-            exchangeDate: dayjs(this.changelist[0].start).subtract(8,'h').format("YYYY-MM-DD H:mm:ss").split(" ")[0],
-            exchangedDate: dayjs(this.changelist[1].start).subtract(8,'h').format("YYYY-MM-DD H:mm:ss").split(" ")[0],
-            exchangeEndTime: dayjs(this.changelist[0].end).subtract(8,'h').format("YYYY-MM-DD H:mm:ss").split(" ")[1],
+            exchangeDate: dayjs(this.changelist[0].start)
+              .subtract(8, "h")
+              .format("YYYY-MM-DD H:mm:ss")
+              .split(" ")[0],
+            exchangedDate: dayjs(this.changelist[1].start)
+              .subtract(8, "h")
+              .format("YYYY-MM-DD H:mm:ss")
+              .split(" ")[0],
+            exchangeEndTime: dayjs(this.changelist[0].end)
+              .subtract(8, "h")
+              .format("YYYY-MM-DD H:mm:ss")
+              .split(" ")[1],
             exchangeId: parseInt(this.changelist[0].id),
-            exchangeStartTime:dayjs(this.changelist[0].start).subtract(8,'h').format("YYYY-MM-DD H:mm:ss").split(" ")[1],
-            exchangedEndTime:dayjs(this.changelist[1].end).subtract(8,'h').format("YYYY-MM-DD H:mm:ss").split(" ")[1],
+            exchangeStartTime: dayjs(this.changelist[0].start)
+              .subtract(8, "h")
+              .format("YYYY-MM-DD H:mm:ss")
+              .split(" ")[1],
+            exchangedEndTime: dayjs(this.changelist[1].end)
+              .subtract(8, "h")
+              .format("YYYY-MM-DD H:mm:ss")
+              .split(" ")[1],
             exchangedId: parseInt(this.changelist[1].id),
-            exchangedStartTime:dayjs(this.changelist[1].start).subtract(8,'h').format("YYYY-MM-DD H:mm:ss").split(" ")[1]
+            exchangedStartTime: dayjs(this.changelist[1].start)
+              .subtract(8, "h")
+              .format("YYYY-MM-DD H:mm:ss")
+              .split(" ")[1],
           },
-          exchangeMsg:{
+          exchangeMsg: {
             shopId: this.value,
             dayIdOne: this.changelist[0].extendedProps.dayId,
             clazzIdOne: this.changelist[0].extendedProps.clazzId,
@@ -551,17 +686,17 @@ export default {
             dayIdTwo: this.changelist[1].extendedProps.dayId,
             clazzIdTwo: this.changelist[1].extendedProps.clazzId,
             empIdTwo: this.changelist[1].extendedProps.clazzForEmpId,
-          }
+          },
         });
-        console.log(a.data)
-        if(a.data.flag){
+        console.log(a.data);
+        if (a.data.flag) {
           // this.clear()
           // this.getinfo()
-          this.changelist.splice(0,this.changelist.length)
+          this.changelist.splice(0, this.changelist.length);
           this.$message({
-          message: "提交成功",
-          type: "success",
-        });
+            message: "提交成功",
+            type: "success",
+          });
         }
       }
     },
@@ -620,12 +755,64 @@ export default {
       this.show(); //重新加载数据
       // location.reload(); //刷新页面
     },
-
-    // 交换排班信息事件
-    changeinfo() {
-      console.log(22);
+    //指派功能开始(新增，与小黄版本不同)
+    async select(info) {
+      console.log(info);
+      console.log("shop", this.shopid_);
+      if (info.id) {
+        console.log(111);
+      } else {
+        console.log(222);
+        this.dayid = info.extendedProps.dayId;
+        this.classid = info.extendedProps.clazzId;
+        this.index = info.extendedProps.index;
+        let { data: res } = await this.$http.get(
+          "/schedule/empRecommend/" +
+            this.value +
+            "/" +
+            info.extendedProps.dayId +
+            "/" +
+            info.extendedProps.clazzId +
+            "/" +
+            info.extendedProps.index
+        );
+        console.log(res);
+        this.recommend = res.data;
+        console.log(this.recommend);
+        this.table = true;
+      }
     },
-
+    async agree(row, index) {
+      let c = 0;
+      // console.log('c',c);
+      let a = parseInt(this.recommend[index].startTime.split(":")[0]);
+      let b = parseInt(this.recommend[index].endTime.split(":")[0]);
+      // console.log(b,a);
+      if (b < a) {
+        c = b + 24 - a;
+      } else {
+        c = b - a;
+      }
+      // console.log(c);
+      let { data: res } = await this.$http.put(
+        "/schedule/selectEmpForClazz/" +
+          this.shopid_ +
+          "/" +
+          this.dayid +
+          "/" +
+          this.classid +
+          "/" +
+          this.index +
+          "/" +
+          this.recommend[index].empId +
+          "/" +
+          c
+      );
+      // console.log(res);
+      this.table = false;
+      location.reload();
+    },
+    //指派功能结束
     // 点击切换门店事件
     changeRoom(index) {
       console.log(index);
@@ -665,22 +852,22 @@ export default {
     },
     //  一键自动排班触发事件
     show() {
-      this.clear()
-      this.calendarOptions.events.splice(0,this.calendarOptions.events.length)
+      this.clear();
+      this.calendarOptions.events.splice(0, this.calendarOptions.events.length);
       let star = dayjs(this.calendarApi.view.activeStart).format("YYYY-MM-DD ");
       let end = dayjs(this.calendarApi.view.activeEnd).format("YYYY-MM-DD ");
-      console.log(star+''+end)
-      for(let i = 0 ; i<this.all_.length ; i++){
-        if(this.all_[i].start >= star && this.all_[i].end < end){
-          this.calendarOptions.events.push(this.all_[i])
-        }else if(this.all_[i].end >= end){
-          break
+      console.log(star + "" + end);
+      for (let i = 0; i < this.all_.length; i++) {
+        if (this.all_[i].start >= star && this.all_[i].end < end) {
+          this.calendarOptions.events.push(this.all_[i]);
+        } else if (this.all_[i].end >= end) {
+          break;
         }
       }
-      console.log(this.calendarOptions.events)
-      console.log(this.calendarOptions.events[0].start.split(" "))
-      this.old.splice(0,this.old.length)
-      this.old = this.old.concat(this.calendarOptions.events)
+      console.log(this.calendarOptions.events);
+      console.log(this.calendarOptions.events[0].start.split(" "));
+      this.old.splice(0, this.old.length);
+      this.old = this.old.concat(this.calendarOptions.events);
     },
 
     // 查询事件
@@ -700,7 +887,7 @@ export default {
         }
       } else {
         console.log("111");
-        this.clear()
+        this.clear();
         this.calendarOptions.events = this.calendarOptions.events.concat(
           this.old
         );
@@ -715,8 +902,13 @@ export default {
       this.ptitle();
       this.ntitle();
       this.calendarApi.prev();
-      this.show(); //调用自动排班事件
-      this.jobchange(); //调用按职位分组事件
+      if (this.calendarApi.view?.type === "resourceTimelineDay") {
+        this.day_ = this.day_ - 1;
+        this.show(); //调用自动排班事件
+      } else {
+        this.show(); //调用自动排班事件
+        this.jobchange(); //调用按职位分组事件
+      }
     },
     // >
     next() {
@@ -725,8 +917,13 @@ export default {
       this.ptitle();
       this.ntitle();
       this.calendarApi.prev();
-      this.show(); //调用自动排班事件
-      this.jobchange(); //调用按职位分组事件
+      if (this.calendarApi.view?.type === "resourceTimelineDay") {
+        this.day_ = this.day_ + 1;
+        this.show(); //调用自动排班事件
+      } else {
+        this.show(); //调用自动排班事件
+        this.jobchange(); //调用按职位分组事件
+      }
     },
     // prevtitle
     ptitle() {
@@ -775,9 +972,9 @@ export default {
 
     //清除全部事件
     clear() {
-      for(let i = 0 ; i < this.calendarApi.getEvents().length ;){
-        if(this.calendarApi.getEvents().length > 0){
-          this.calendarApi.getEvents()[0].remove()
+      for (let i = 0; i < this.calendarApi.getEvents().length; ) {
+        if (this.calendarApi.getEvents().length > 0) {
+          this.calendarApi.getEvents()[0].remove();
         }
       }
       // if(this.calendarApi.getEvents().length > 0){
@@ -788,22 +985,22 @@ export default {
       // }
     },
     // 单击事件
-    handleDateClick(e) {
-      if (e.dateStr !== prev) {
-        clickCount = 0;
-      }
-      clickCount += 1;
-      // clickCount += 1;
-      prev = e.dateStr;
-      setTimeout(() => {
-        if (clickCount === 2) {
-          console.log("db click");
-        } else if (clickCount === 1) {
-          console.log("one click");
-        }
-        clickCount = 0;
-      }, 0);
-    },
+    // handleDateClick(e) {
+    //   if (e.dateStr !== prev) {
+    //     clickCount = 0;
+    //   }
+    //   clickCount += 1;
+    //   // clickCount += 1;
+    //   prev = e.dateStr;
+    //   setTimeout(() => {
+    //     if (clickCount === 2) {
+    //       console.log("db click");
+    //     } else if (clickCount === 1) {
+    //       console.log("one click");
+    //     }
+    //     clickCount = 0;
+    //   }, 0);
+    // },
     //
     handleType() {
       if (this.type === "timeline") {
@@ -892,6 +1089,6 @@ p {
   text-align: center;
   height: 20px;
   line-height: 20px;
-} 
+}
 </style>
   

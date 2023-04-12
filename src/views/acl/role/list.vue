@@ -162,6 +162,7 @@ import axios from 'axios'
 export default {
   // eslint-disable-next-line vue/multi-word-component-names
   name: 'RoleList',
+  props:["shopid_"],
   // inject: ['reload'],
   data() {
     return {
